@@ -26,16 +26,15 @@ node {
             echo 'Build successful'
         }
 
-        stage('Deploy to Tomcat') {
-            echo 'Deploying OLTRS application'
+        stage('Package Application') {
+            echo 'Packaging OLTRS application'
 
-            bat '''
-                copy /Y target\\ticket-reservation.war C:\\Tomcat9\\webapps\\ROOT.war
+            archiveArtifacts(
+                artifacts: 'target/ticket-reservation.war',
+                fingerprint: true
+            )
 
-                if errorlevel 1 exit /b 1
-            '''
-
-            echo 'Deployment successful'
+            echo 'WAR file archived successfully'
         }
 
         echo 'OLTRS CI/CD Pipeline completed successfully'
