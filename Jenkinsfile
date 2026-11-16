@@ -21,14 +21,14 @@ node {
                 url: 'https://github.com/vishalreddy0116/OLTRS.git'
 
             shortCommit = bat(
-    script: '@echo off\r\n"C:\\Program Files\\Git\\mingw64\\bin\\git.exe" rev-parse --short HEAD',
-    returnStdout: true
-).trim()
+                script: '@echo off\r\n"C:\\Program Files\\Git\\mingw64\\bin\\git.exe" rev-parse --short HEAD',
+                returnStdout: true
+            ).trim()
 
             echo "Commit: ${shortCommit}"
         }
 
-        // Stage 2: Maven Build and Test
+        // Stage 2: Build and Test
         stage('Build and Test') {
 
             echo 'Building and testing OLTRS'
@@ -43,52 +43,76 @@ node {
 
             bat """
                 docker build -t ${dockerImage}:${env.BUILD_NUMBER} .
+                if errorlevel 1 exit /b 1
+
                 docker tag ${dockerImage}:${env.BUILD_NUMBER} ${dockerImage}:latest
+                if errorlevel 1 exit /b 1
+
                 docker tag ${dockerImage}:${env.BUILD_NUMBER} ${dockerImage}:${shortCommit}
+                if errorlevel 1 exit /b 1
             """
         }
 
         // Stage 4: Docker Push
-        
+        stage('Docker Push') {
 
-stage('Docker Push') {
-    steps {
-        echo 'Pushing image to Docker Hub'
+            echo 'Pushing image to Docker Hub'
 
-        withCredentials([
-            usernamePassword(
-                credentialsId: 'dockerhub-credentials',
-                usernameVariable: 'DOCKERHUB_USER',
-                passwordVariable: 'DOCKERHUB_TOKEN'
-            )
-        ]) {
-            withEnv([
-                "IMAGE_NAME=${dockerImage}",
-                "GIT_COMMIT_SHORT=${shortCommit}"
+            withCredentials([
+                usernamePassword(
+                    credentialsId: 'dockerhub-credentials',
+                    usernameVariable: 'DOCKERHUB_USER',
+                    passwordVariable: 'DOCKERHUB_TOKEN'
+                )
             ]) {
-                bat '''
-                    @echo off
 
-                    echo Logging into Docker Hub...
+                withEnv([
+                    "IMAGE_NAME=${dockerImage}",
+                    "GIT_COMMIT_SHORT=${shortCommit}"
+                ]) {
 
-                    echo %DOCKERHUB_TOKEN% | docker login -u %DOCKERHUB_USER% --password-stdin
+                    bat '''
+                        @echo off
 
-                    if errorlevel 1 exit /b 1
+                        echo Logging into Docker Hub...
 
-                    docker push %IMAGE_NAME%:%BUILD_NUMBER%
-                    if errorlevel 1 exit /b 1
+                        echo %DOCKERHUB_TOKEN% | docker login -u %DOCKERHUB_USER% --password-stdin
 
-                    docker push %IMAGE_NAME%:latest
-                    if errorlevel 1 exit /b 1
+                        if errorlevel 1 exit /b 1
 
-                    docker push %IMAGE_NAME%:%GIT_COMMIT_SHORT%
-                    if errorlevel 1 exit /b 1
+                        docker push %IMAGE_NAME%:%BUILD_NUMBER%
+                        if errorlevel 1 exit /b 1
 
-                    docker logout
+                        docker push %IMAGE_NAME%:latest
+                        if errorlevel 1 exit /b 1
 
-                    echo Docker images pushed successfully!
-                '''
+                        docker push %IMAGE_NAME%:%GIT_COMMIT_SHORT%
+                        if errorlevel 1 exit /b 1
+
+                        docker logout
+
+                        echo Docker images pushed successfully!
+                    '''
+                }
             }
         }
+
+        echo 'OLTRS CI/CD Pipeline completed successfully'
+
+    } catch (err) {
+
+        currentBuild.result = 'FAILURE'
+
+        echo "Pipeline failed: ${err}"
+
+        throw err
+
+    } finally {
+
+        // Publish Maven test reports
+        junit(
+            testResults: '**/target/surefire-reports/*.xml',
+            allowEmptyResults: true
+        )
     }
 }
