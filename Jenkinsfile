@@ -6,66 +6,50 @@ properties([
 ])
 
 node {
-
     try {
 
-        // Stage 1: Checkout
+        // Stage 1
         stage('Checkout') {
-            echo 'Fetching OLTRS source code from GitHub'
+            echo 'Checking out OLTRS source code'
 
             git branch: 'master',
                 url: 'https://github.com/vishalreddy0116/OLTRS.git'
-
-            echo 'Source code checkout successful'
         }
 
-        // Stage 2: Build
+        // Stage 2
         stage('Build') {
             echo 'Building OLTRS application'
-
             bat 'mvn -B clean compile'
-
-            echo 'Compilation successful'
         }
 
-        // Stage 3: Test
+        // Stage 3
         stage('Test') {
-            echo 'Running OLTRS tests'
-
+            echo 'Running application tests'
             bat 'mvn -B test'
-
-            echo 'Testing stage completed'
         }
 
-        // Stage 4: Package
+        // Stage 4
         stage('Package') {
-            echo 'Packaging OLTRS application'
-
+            echo 'Creating WAR file'
             bat 'mvn -B package -DskipTests'
-
-            echo 'WAR packaging successful'
         }
 
-        // Stage 5: Archive Artifacts
+        // Stage 5
         stage('Archive Artifacts') {
-            echo 'Archiving generated WAR file'
+            echo 'Archiving WAR file'
 
             archiveArtifacts(
                 artifacts: 'target/ticket-reservation.war',
                 fingerprint: true
             )
-
-            echo 'Artifact archived successfully'
         }
 
-        echo 'OLTRS CI/CD Pipeline completed successfully'
+        echo 'OLTRS pipeline completed successfully'
 
     } catch (err) {
 
         currentBuild.result = 'FAILURE'
-
         echo "Pipeline failed: ${err}"
-
         throw err
 
     } finally {
