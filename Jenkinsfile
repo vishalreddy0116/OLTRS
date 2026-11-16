@@ -49,60 +49,51 @@ node {
         }
 
         // Stage 4: Docker Push
-        stage('Docker Push') {
+        
+stage('Docker Push') {
 
-            echo 'Pushing image to Docker Hub'
+    steps {
+        echo 'Pushing image to Docker Hub'
 
-            withCredentials([
-                usernamePassword(
-                    credentialsId: 'dockerhub-credentials',
-                    usernameVariable: 'DOCKERHUB_USER',
-                    passwordVariable: 'DOCKERHUB_TOKEN'
-                )
+        withCredentials([
+            usernamePassword(
+                credentialsId: 'dockerhub-credentials',
+                usernameVariable: 'DOCKERHUB_USER',
+                passwordVariable: 'DOCKERHUB_TOKEN'
+            )
+        ]) {
+
+            withEnv([
+                "IMAGE_NAME=${dockerImage}",
+                "GIT_COMMIT_SHORT=${shortCommit}"
             ]) {
 
-                withEnv([
-                    "IMAGE_NAME=${dockerImage}",
-                    "GIT_COMMIT_SHORT=${shortCommit}"
-                ]) {
+                bat '''
+                    @echo off
 
-                    bat '''
-                        @echo off
-                        echo %DOCKERHUB_TOKEN% | docker login -u %DOCKERHUB_USER% --password-stdin
+                    echo Logging into Docker Hub...
 
-                        if errorlevel 1 exit /b 1
+                    echo %DOCKERHUB_TOKEN% | docker login -u %DOCKERHUB_USER% --password-stdin
 
-                        docker push %IMAGE_NAME%:%BUILD_NUMBER%
-                        if errorlevel 1 exit /b 1
+                    if errorlevel 1 exit /b 1
 
-                        docker push %IMAGE_NAME%:latest
-                        if errorlevel 1 exit /b 1
+                    echo Pushing build number tag...
+                    docker push %IMAGE_NAME%:%BUILD_NUMBER%
+                    if errorlevel 1 exit /b 1
 
-                        docker push %IMAGE_NAME%:%GIT_COMMIT_SHORT%
-                        if errorlevel 1 exit /b 1
+                    echo Pushing latest tag...
+                    docker push %IMAGE_NAME%:latest
+                    if errorlevel 1 exit /b 1
 
-                        docker logout
-                    '''
-                }
+                    echo Pushing Git commit tag...
+                    docker push %IMAGE_NAME%:%GIT_COMMIT_SHORT%
+                    if errorlevel 1 exit /b 1
+
+                    docker logout
+
+                    echo Docker images pushed successfully!
+                '''
             }
         }
-
-        echo 'OLTRS CI/CD Pipeline completed successfully'
-
-    } catch (err) {
-
-        currentBuild.result = 'FAILURE'
-
-        echo "Pipeline failed: ${err}"
-
-        throw err
-
-    } finally {
-
-        // Publish Maven test reports
-        junit(
-            testResults: '**/target/surefire-reports/*.xml',
-            allowEmptyResults: true
-        )
     }
 }
