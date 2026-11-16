@@ -8,7 +8,6 @@ properties([
 node {
     try {
 
-        // Stage 1
         stage('Checkout') {
             echo 'Checking out OLTRS source code'
 
@@ -16,25 +15,21 @@ node {
                 url: 'https://github.com/vishalreddy0116/OLTRS.git'
         }
 
-        // Stage 2
         stage('Build') {
             echo 'Building OLTRS application'
             bat 'mvn -B clean compile'
         }
 
-        // Stage 3
         stage('Test') {
             echo 'Running application tests'
             bat 'mvn -B test'
         }
 
-        // Stage 4
         stage('Package') {
             echo 'Creating WAR file'
             bat 'mvn -B package -DskipTests'
         }
 
-        // Stage 5
         stage('Archive Artifacts') {
             echo 'Archiving WAR file'
 
@@ -44,7 +39,18 @@ node {
             )
         }
 
-        echo 'OLTRS pipeline completed successfully'
+        stage('Continuous Delivery') {
+            echo 'Preparing application for delivery'
+
+            bat '''
+                if not exist target\\ticket-reservation.war exit /b 1
+                echo OLTRS WAR artifact is ready for deployment
+            '''
+
+            echo 'Continuous Delivery completed successfully'
+        }
+
+        echo 'OLTRS CI/CD Pipeline completed successfully'
 
     } catch (err) {
 
