@@ -1,6 +1,4 @@
 
-// Jenkins Scripted Pipeline for OLTRS
-
 properties([
     pipelineTriggers([
         [$class: 'GitHubPushTrigger']
@@ -17,43 +15,43 @@ node {
         // Stage 1: Checkout
         stage('Checkout') {
 
-            echo 'Checking out OLTRS source code from GitHub'
+            echo 'Checking out OLTRS source code'
 
             git branch: 'master',
                 url: 'https://github.com/vishalreddy0116/OLTRS.git'
 
-            shortCommit = sh(
-                script: 'git rev-parse --short HEAD',
+            shortCommit = bat(
+                script: '@echo off\r\ngit rev-parse --short HEAD',
                 returnStdout: true
             ).trim()
 
-            echo "Checked out commit: ${shortCommit}"
+            echo "Commit: ${shortCommit}"
         }
 
         // Stage 2: Maven Build and Test
         stage('Build and Test') {
 
-            echo 'Building and testing OLTRS using Maven'
+            echo 'Building and testing OLTRS'
 
-            sh 'mvn -B clean verify'
+            bat 'mvn -B clean verify'
         }
 
-        // Stage 3: Docker Image Build
+        // Stage 3: Docker Build
         stage('Docker Build') {
 
             echo 'Creating Docker image'
 
-            sh """
+            bat """
                 docker build -t ${dockerImage}:${env.BUILD_NUMBER} .
                 docker tag ${dockerImage}:${env.BUILD_NUMBER} ${dockerImage}:latest
                 docker tag ${dockerImage}:${env.BUILD_NUMBER} ${dockerImage}:${shortCommit}
             """
         }
 
-        // Stage 4: Push Docker Image
+        // Stage 4: Docker Push
         stage('Docker Push') {
 
-            echo 'Pushing Docker image to Docker Hub'
+            echo 'Pushing image to Docker Hub'
 
             withCredentials([
                 usernamePassword(
@@ -68,13 +66,20 @@ node {
                     "GIT_COMMIT_SHORT=${shortCommit}"
                 ]) {
 
-                    sh '''
-                        echo "$DOCKERHUB_TOKEN" | docker login \
-                            -u "$DOCKERHUB_USER" --password-stdin
+                    bat '''
+                        @echo off
+                        echo %DOCKERHUB_TOKEN% | docker login -u %DOCKERHUB_USER% --password-stdin
 
-                        docker push "$IMAGE_NAME:$BUILD_NUMBER"
-                        docker push "$IMAGE_NAME:latest"
-                        docker push "$IMAGE_NAME:$GIT_COMMIT_SHORT"
+                        if errorlevel 1 exit /b 1
+
+                        docker push %IMAGE_NAME%:%BUILD_NUMBER%
+                        if errorlevel 1 exit /b 1
+
+                        docker push %IMAGE_NAME%:latest
+                        if errorlevel 1 exit /b 1
+
+                        docker push %IMAGE_NAME%:%GIT_COMMIT_SHORT%
+                        if errorlevel 1 exit /b 1
 
                         docker logout
                     '''
@@ -99,23 +104,5 @@ node {
             testResults: '**/target/surefire-reports/*.xml',
             allowEmptyResults: true
         )
-
-        // Send email only when pipeline fails
-        if (currentBuild.currentResult == 'FAILURE') {
-
-            emailext(
-                to: 'vishalreddy0116@gmail.com',
-                subject: "OLTRS Pipeline FAILED - Build #${env.BUILD_NUMBER}",
-                body: """
-                    OLTRS Jenkins Pipeline has failed.
-
-                    Build Number: ${env.BUILD_NUMBER}
-                    Job Name: ${env.JOB_NAME}
-                    Build URL: ${env.BUILD_URL}
-
-                    Please check Jenkins Console Output.
-                """
-            )
-        }
     }
 }
