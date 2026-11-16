@@ -50,8 +50,8 @@ node {
 
         // Stage 4: Docker Push
         
-stage('Docker Push') {
 
+stage('Docker Push') {
     steps {
         echo 'Pushing image to Docker Hub'
 
@@ -62,12 +62,10 @@ stage('Docker Push') {
                 passwordVariable: 'DOCKERHUB_TOKEN'
             )
         ]) {
-
             withEnv([
                 "IMAGE_NAME=${dockerImage}",
                 "GIT_COMMIT_SHORT=${shortCommit}"
             ]) {
-
                 bat '''
                     @echo off
 
@@ -77,15 +75,12 @@ stage('Docker Push') {
 
                     if errorlevel 1 exit /b 1
 
-                    echo Pushing build number tag...
                     docker push %IMAGE_NAME%:%BUILD_NUMBER%
                     if errorlevel 1 exit /b 1
 
-                    echo Pushing latest tag...
                     docker push %IMAGE_NAME%:latest
                     if errorlevel 1 exit /b 1
 
-                    echo Pushing Git commit tag...
                     docker push %IMAGE_NAME%:%GIT_COMMIT_SHORT%
                     if errorlevel 1 exit /b 1
 
