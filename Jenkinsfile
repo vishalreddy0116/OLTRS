@@ -21,9 +21,9 @@ node {
                 url: 'https://github.com/vishalreddy0116/OLTRS.git'
 
             shortCommit = bat(
-                script: '@echo off\r\ngit rev-parse --short HEAD',
-                returnStdout: true
-            ).trim()
+    script: '@echo off\r\n"C:\\Program Files\\Git\\mingw64\\bin\\git.exe" rev-parse --short HEAD',
+    returnStdout: true
+).trim()
 
             echo "Commit: ${shortCommit}"
         }
