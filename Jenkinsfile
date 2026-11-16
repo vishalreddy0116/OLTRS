@@ -9,7 +9,7 @@ properties([
 
 node {
 
-    def dockerImage = 'yourdockerhubusername/oltrs'
+    def dockerImage = 'vishalreddy0116/oltrs'
     def shortCommit = ''
 
     try {
@@ -20,7 +20,7 @@ node {
             echo 'Checking out OLTRS source code from GitHub'
 
             git branch: 'master',
-                url: 'https://github.com/archanareddyse/OLTRS.git'
+                url: 'https://github.com/vishalreddy0116/OLTRS.git'
 
             shortCommit = sh(
                 script: 'git rev-parse --short HEAD',
@@ -43,32 +43,12 @@ node {
 
             echo 'Creating Docker image'
 
-            
-withCredentials([
-    usernamePassword(
-        credentialsId: 'dockerhub-creds',
-        usernameVariable: 'DOCKERHUB_USER',
-        passwordVariable: 'DOCKERHUB_TOKEN'
-    )
-]) {
-
-    withEnv([
-        "IMAGE_NAME=${dockerImage}",
-        "GIT_COMMIT_SHORT=${shortCommit}"
-    ]) {
-
-        sh '''
-            echo "$DOCKERHUB_TOKEN" | docker login \
-              -u "$DOCKERHUB_USER" --password-stdin
-
-            docker push "$IMAGE_NAME:$BUILD_NUMBER"
-            docker push "$IMAGE_NAME:latest"
-            docker push "$IMAGE_NAME:$GIT_COMMIT_SHORT"
-
-            docker logout
-        '''
-    }
-}
+            sh """
+                docker build -t ${dockerImage}:${env.BUILD_NUMBER} .
+                docker tag ${dockerImage}:${env.BUILD_NUMBER} ${dockerImage}:latest
+                docker tag ${dockerImage}:${env.BUILD_NUMBER} ${dockerImage}:${shortCommit}
+            """
+        }
 
         // Stage 4: Push Docker Image
         stage('Docker Push') {
@@ -77,21 +57,26 @@ withCredentials([
 
             withCredentials([
                 usernamePassword(
-                    credentialsId: 'dockerhub-creds',
+                    credentialsId: 'dockerhub-credentials',
                     usernameVariable: 'DOCKERHUB_USER',
                     passwordVariable: 'DOCKERHUB_TOKEN'
                 )
             ]) {
 
-                withEnv(["IMAGE_NAME=${dockerImage}"]) {
+                withEnv([
+                    "IMAGE_NAME=${dockerImage}",
+                    "GIT_COMMIT_SHORT=${shortCommit}"
+                ]) {
 
                     sh '''
                         echo "$DOCKERHUB_TOKEN" | docker login \
-                          -u "$DOCKERHUB_USER" --password-stdin
+                            -u "$DOCKERHUB_USER" --password-stdin
 
                         docker push "$IMAGE_NAME:$BUILD_NUMBER"
                         docker push "$IMAGE_NAME:latest"
                         docker push "$IMAGE_NAME:$GIT_COMMIT_SHORT"
+
+                        docker logout
                     '''
                 }
             }
@@ -119,16 +104,16 @@ withCredentials([
         if (currentBuild.currentResult == 'FAILURE') {
 
             emailext(
-                to: 'your-email@example.com',
+                to: 'vishalreddy0116@gmail.com',
                 subject: "OLTRS Pipeline FAILED - Build #${env.BUILD_NUMBER}",
                 body: """
-                OLTRS Jenkins Pipeline has failed.
+                    OLTRS Jenkins Pipeline has failed.
 
-                Build Number: ${env.BUILD_NUMBER}
-                Job Name: ${env.JOB_NAME}
-                Build URL: ${env.BUILD_URL}
+                    Build Number: ${env.BUILD_NUMBER}
+                    Job Name: ${env.JOB_NAME}
+                    Build URL: ${env.BUILD_URL}
 
-                Please check the Jenkins console output.
+                    Please check Jenkins Console Output.
                 """
             )
         }
